@@ -8,3 +8,6 @@ A simple sand simulation type game with multiple particle types.
  - W to place a solid wall
  - D - enable debug view (chunk borders)
  - SPACE - Pause and Unpause can press the right arrow key to go to the next frame when paused.
+
+## General info
+ - the brushSize variable can be changed to affect how big the brush that the particles are placed with is.
