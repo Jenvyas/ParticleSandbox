@@ -8,6 +8,7 @@
 #include <time.h>
 #include <windows.h>
 
+
 enum ParticleType { air, solid, sand, liquid, gas, fire };
 
 class Particle {
@@ -30,9 +31,11 @@ private:
     void updateGas(std::vector<std::vector<Particle>>& pixels, int x, int y, int boundsX, int boundsY);
     void fireSpread(std::vector<std::vector<Particle>>& pixels, int x, int y, int boundsX, int boundsY);
     void updateFire(std::vector<std::vector<Particle>>& pixels, int x, int y, int boundsX, int boundsY);
+    void traverseWhileFalling(std::vector<std::vector<Particle>>& pixels, int boundsX, int boundsY, int x, int y);
     ParticleType particleType = ParticleType::solid;
     int hasBeenUpdated = 0;
     int currentChunk = -1;
+    bool isFrozen = false;
     float density = 1;
     float velocity = 0;
     bool perishable = false;
@@ -43,6 +46,7 @@ private:
     bool corrosive = false;
     bool corrodable = true;
     bool isFreeFalling = false;
+    static const int g = 1;
     int seed;
 };
 

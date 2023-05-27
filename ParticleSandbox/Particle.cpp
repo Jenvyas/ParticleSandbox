@@ -73,6 +73,10 @@ bool Particle::validPosition(int boundsX, int boundsY, int xCoord, int yCoord) {
 }
 
 void Particle::updateSand(std::vector<std::vector<Particle>>& pixels, int x, int y, int boundsX, int boundsY) {
+    if (isFrozen) {
+        isFrozen = false;
+    }
+
     struct Offset {
         int x;
         int y;
@@ -83,17 +87,18 @@ void Particle::updateSand(std::vector<std::vector<Particle>>& pixels, int x, int
 
     for (int i = 0; i < 1; i++) {
         Offset offset = offsets[i];
-        if (!Particle::validPosition(boundsX, boundsY, x + offset.x, y + offset.y))
-            return;
-
-        if (pixels[x + offset.x][y + offset.y].particleType != ParticleType::air && pixels[x + offset.x][y + offset.y].hasBeenUpdated != hasBeenUpdated) {
+        if (!Particle::validPosition(boundsX, boundsY, x + offset.x, y + offset.y)) {
+            this->isFreeFalling = false;
             return;
         }
 
-        if (pixels[x + offset.x][y + offset.y].particleType == ParticleType::air || pixels[x + offset.x][y + offset.y].density < this->density && pixels[x + offset.x][y + offset.y].particleType != solid) {
-            swapPixels(pixels, sf::Vector2u(x, y), sf::Vector2u(x + offset.x, y + offset.y));
+        if (pixels[x][y + offset.y].particleType == ParticleType::air || pixels[x + offset.x][y + offset.y].density < this->density && pixels[x + offset.x][y + offset.y].particleType != solid) {
             this->isFreeFalling = true;
+            traverseWhileFalling(pixels, boundsX, boundsY, x, y);
             return;
+        } else {
+            this->isFreeFalling = pixels[x][y+1].isFreeFalling;
+            this->velocity = 0;
         }
     }
     for (int i = 1; i < 3; i++) {
@@ -104,7 +109,6 @@ void Particle::updateSand(std::vector<std::vector<Particle>>& pixels, int x, int
 
         if ((pixels[x + offset.x][y + offset.y].particleType == ParticleType::air || pixels[x + offset.x][y + offset.y].density < this->density) && pixels[x + offset.x][y + offset.y].particleType != solid) {
             swapPixels(pixels, sf::Vector2u(x, y), sf::Vector2u(x + offset.x, y + offset.y));
-            this->isFreeFalling = true;
             break;
         }
     }
@@ -116,7 +120,25 @@ void Particle::updateLiquid(std::vector<std::vector<Particle>>& pixels, int x, i
         int y;
     };
     Offset offsets[5] = { {0, 1}, {1, 1}, {-1, 1}, {1, 0}, {-1, 0}, };
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 1; i++) {
+        Offset offset = offsets[i];
+        if (!Particle::validPosition(boundsX, boundsY, x + offset.x, y + offset.y)) {
+            this->isFreeFalling = false;
+            return;
+        }
+
+        if ((pixels[x + offset.x][y + offset.y].particleType == ParticleType::air || pixels[x + offset.x][y + offset.y].density < this->density) && pixels[x + offset.x][y + offset.y].particleType != solid) {
+            this->isFreeFalling = true;
+            traverseWhileFalling(pixels, boundsX, boundsY, x, y);
+            return;
+        }
+        else {
+            this->isFreeFalling = pixels[x][y + 1].isFreeFalling;
+            this->velocity = 0;
+        }
+    }
+
+    for (int i = 1; i < 2; i++) {
         Offset offset = offsets[i];
         if (!Particle::validPosition(boundsX, boundsY, x + offset.x, y + offset.y))
             return;
@@ -136,13 +158,20 @@ void Particle::updateLiquid(std::vector<std::vector<Particle>>& pixels, int x, i
         }
         if (maxValidOffset < 0) maxValidOffset *= -1;
         for (int j = 1; j <= maxValidOffset; j++) {
-            if (pixels[x + offset.x * j][y].particleType == air || pixels[x + offset.x * j][y].particleType == liquid && !(validPosition(boundsX, boundsY, x, y + 1) && pixels[x + maxOffset[i-3]][y + 1].particleType == air))
+            if (pixels[x + offset.x * j][y+1].particleType == air) {
+                maxOffset[i - 3] = j * offset.x;
+                continue;
+            }
+            if (pixels[x + offset.x * j][y].particleType == air)
                 maxOffset[i-3] = j * offset.x;
             else continue;
         }
     }
-    int randIndex = rand() % 2;
-    swapPixels(pixels, sf::Vector2u(x, y), sf::Vector2u(x + maxOffset[randIndex], y));
+    if (maxOffset[0] < maxOffset[1]*-1) {
+        swapPixels(pixels, sf::Vector2u(x, y), sf::Vector2u(x + maxOffset[1], y));
+    } else {
+        swapPixels(pixels, sf::Vector2u(x, y), sf::Vector2u(x + maxOffset[0], y));
+    }
 }
 
 void Particle::updateGas(std::vector<std::vector<Particle>>& pixels, int x, int y, int boundsX, int boundsY) {
@@ -209,6 +238,37 @@ void Particle::updateFire(std::vector<std::vector<Particle>>& pixels, int x, int
             break;
         }
     }
+}
+
+void Particle::traverseWhileFalling(std::vector<std::vector<Particle>>& pixels, int boundsX, int boundsY, int x, int y) {
+    this->velocity += g;
+    float vel = velocity;
+
+    bool extraParam;
+    switch(this->particleType) {
+    case sand:
+        for (int i = y + 1; i <= y + vel; i++) {
+            if (validPosition(boundsX, boundsY, x, i) && (pixels[x][i].particleType == air || pixels[x][i].particleType == liquid || (pixels[x][i].particleType == sand && pixels[x][i].isFreeFalling))) {
+                swapPixels(pixels, sf::Vector2u(x, i - 1), sf::Vector2u(x, i));
+            }
+            else {
+                return;
+            }
+        }
+        break;
+    case liquid:
+        for (int i = y + 1; i <= y + vel; i++) {
+            if (validPosition(boundsX, boundsY, x, i) && (pixels[x][i].particleType == air || (pixels[x][i].particleType == liquid && pixels[x][i].isFreeFalling))) {
+                swapPixels(pixels, sf::Vector2u(x, i - 1), sf::Vector2u(x, i));
+            }
+            else {
+                return;
+            }
+        }
+        break;
+    }
+    
+    
 }
 
 void Particle::update(std::vector<std::vector<Particle>>& pixels, int x, int y) {
