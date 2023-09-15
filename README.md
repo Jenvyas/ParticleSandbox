@@ -1,5 +1,5 @@
 # ParticleSandbox
-A simple sand simulation type game with multiple particle types.
+A simple falling sand simulation game with multiple particle types.
 
 ## Controls
  - Left Mouse Button - Place particles
